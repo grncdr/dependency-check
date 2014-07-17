@@ -116,7 +116,7 @@ function parse(opts, cb) {
         var isCore = builtins.indexOf(req) > -1
         if (IS_NOT_RELATIVE.test(req) && !isCore) {
           // require('foo/bar') -> require('foo')
-          if (req.indexOf('/') > -1) req = req.split('/')[0]
+          //if (req.indexOf('/') > -1) req = req.split('/')[0]
           debug('require("' + req + '")' + ' is a dependency')
           deps[req] = true
         } else {
