@@ -1,15 +1,18 @@
 {
-  "name": "dependency-check",
-  "version": "1.1.5",
-  "description": "checks which modules you have used in your code and then makes sure they are listed as dependencies in your package.json",
+  "name": "non-local-requires",
+  "version": "1.0.0",
+  "description": "parse out the non-local requires from a module",
   "main": "index.js",
   "bin": {
     "dependency-check": "cli.js"
   },
-  "scripts": {
-    "test": "dependency-check test/"
-  },
-  "author": "max ogden",
+  "author": "Stephen Sugden <me@stephensugden.com>",
+  "contributors": [
+    {
+      "name": "max ogden",
+      "comment": "I forked this from Max's dependency-check"
+    }
+  ],
   "license": "BSD",
   "dependencies": {
     "async": "^0.9.0",
@@ -28,10 +31,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/maxogden/dependency-check.git"
+    "url": "https://github.com/grncdr/non-local-requires.git"
   },
   "bugs": {
-    "url": "https://github.com/maxogden/dependency-check/issues"
+    "url": "https://github.com/grncdr/non-local-requires/issues"
   },
-  "homepage": "https://github.com/maxogden/dependency-check"
+  "homepage": "https://github.com/grncdr/non-local-requires"
 }
