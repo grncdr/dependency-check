@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+/* jshint asi:true,strict:false */
 
-var path = require('path')
-var check = require('./')
+var findRequires = require('./')
 
 var args = require('minimist')(process.argv.slice(2))
 
@@ -17,5 +17,5 @@ findRequires({path: args._[0], entries: args.entry}, function(err, requires) {
   }
   requires.forEach(function (req) {
     console.log(JSON.stringify(req))
-  }
+  })
 })
