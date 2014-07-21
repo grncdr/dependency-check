@@ -4,7 +4,7 @@
   "description": "parse out the non-local requires from a module",
   "main": "index.js",
   "bin": {
-    "dependency-check": "cli.js"
+    "non-local-requires": "cli.js"
   },
   "author": "Stephen Sugden <me@stephensugden.com>",
   "contributors": [
