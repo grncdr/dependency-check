@@ -29,28 +29,6 @@ module.exports = function(opts, cb) {
   }
 }
 
-module.exports.missing = function(pkg, deps) {
-  var missing = []
-  var allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}))
-  
-  deps.map(function(used) {
-    if (allDeps.indexOf(used) === -1) missing.push(used)
-  })
-  
-  return missing
-}
-
-module.exports.extra = function(pkg, deps) {
-  var missing = []
-  var allDeps = Object.keys(pkg.dependencies || {}).concat(Object.keys(pkg.devDependencies || {}))
-  
-  allDeps.map(function(dep) {
-    if (deps.indexOf(dep) === -1) missing.push(dep)
-  })
-
-  return missing
-}
-
 function parse(opts, cb) {
   var IS_NOT_RELATIVE = /^[^\\\/\.]/
   
@@ -61,7 +39,7 @@ function parse(opts, cb) {
   var main = pkg.main || 'index.js';
   if (main[0] === '.') main = main.substr(2);
   if (main.indexOf('.') < 0) main += '.js';
-  var mainPath = path.resolve(path.join(path.dirname(pkgPath), main || 'index.js'))
+  var mainPath = path.resolve(path.join(path.dirname(pkgPath), main))
   if (fs.existsSync(mainPath)) paths.push(mainPath)
   
   if (pkg.bin) {
@@ -100,7 +78,7 @@ function parse(opts, cb) {
         locations: used[key].map(function (loc) { return loc.file + ':' + loc.line })
       }
     });
-    cb(null, {package: pkg, used: used})
+    cb(null, used)
   })
   
   function getDeps(file, basedir, callback) {
