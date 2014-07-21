@@ -1,3 +1,4 @@
+/* jshint asi:true,unused:true */
 var path = require('path')
 var fs = require('fs')
 var readPackage = require('read-package-json')
@@ -6,6 +7,8 @@ var async = require('async')
 var builtins = require('builtins')
 var resolve = require('resolve')
 var debug = require('debug')('dependency-check')
+var lookup = require('lookup')
+var flatten = require('flatten')
 
 module.exports = function(opts, cb) {
   var pkgPath = opts.path
@@ -13,12 +16,17 @@ module.exports = function(opts, cb) {
     if (err && err.code === 'EISDIR') {
       pkgPath = path.join(pkgPath, 'package.json')
       return readPackage(pkgPath, function(err, pkg) {
-      if (err) return cb(err)
-        parse({path: pkgPath, package: pkg, entries: opts.entries}, cb)
+        if (err) return cb(err)
+        doParse(pkg, cb)
       })
+      doParse(pkg, cb)
     }
-    parse({path: pkgPath, package: pkg, entries: opts.entries}, cb)
   })
+
+  function doParse (pkg, cb) {
+    debug('parsing ' + pkgPath);
+    parse({path: pkgPath, package: pkg, entries: opts.entries}, cb)
+  }
 }
 
 module.exports.missing = function(pkg, deps) {
@@ -46,13 +54,14 @@ module.exports.extra = function(pkg, deps) {
 function parse(opts, cb) {
   var IS_NOT_RELATIVE = /^[^\\\/\.]/
   
-  var deps = {}
-  
   var pkgPath = opts.path
   var pkg = opts.package
   
   var paths = []
-  var mainPath = path.resolve(pkg.main || path.join(path.dirname(pkgPath), 'index.js'))
+  var main = pkg.main || 'index.js';
+  if (main[0] === '.') main = main.substr(2);
+  if (main.indexOf('.') < 0) main += '.js';
+  var mainPath = path.resolve(path.join(path.dirname(pkgPath), main || 'index.js'))
   if (fs.existsSync(mainPath)) paths.push(mainPath)
   
   if (pkg.bin) {
@@ -78,18 +87,20 @@ function parse(opts, cb) {
   
   if (paths.length === 0) return cb(new Error('No entry paths found'))
   
+  var visited = {};
   async.map(paths, function(file, cb) {
     getDeps(file, path.dirname(pkgPath), cb)
   }, function(err, allDeps) {
     if (err) return cb(err)
-    var used = {}
-    // merge all deps into one unique list
-    allDeps.forEach(function(deps) {
-      Object.keys(deps).forEach(function(dep) {
-        used[dep] = true
-      })
-    })
-    cb(null, {package: pkg, used: Object.keys(used)})
+    // turn deps into lookup with require strings as keys
+    var used = lookup.reduce(flatten(allDeps), 'string', 'array');
+    used = Object.keys(used).map(function (key) {
+      return {
+        string: key,
+        locations: used[key].map(function (loc) { return loc.file + ':' + loc.line })
+      }
+    });
+    cb(null, {package: pkg, used: used})
   })
   
   function getDeps(file, basedir, callback) {
@@ -103,6 +114,8 @@ function parse(opts, cb) {
       file = resolve.sync(filename, { basedir: path.dirname(file) })
     }
     
+    if (visited[file]) return callback(null, []);
+    visited[file] = true;
     fs.readFile(file, 'utf8', read)
     
     function read(err, contents) {
@@ -110,35 +123,33 @@ function parse(opts, cb) {
         return callback(err)
       }
       
-      var requires = detective(contents)
+      var requires = detective.find(contents, {nodes: true, parse: {loc: true}})
       var relatives = []
-      requires.map(function(req) {
+      var localDeps = requires.strings.map(function(req, i) {
         var isCore = builtins.indexOf(req) > -1
         if (IS_NOT_RELATIVE.test(req) && !isCore) {
           // require('foo/bar') -> require('foo')
           //if (req.indexOf('/') > -1) req = req.split('/')[0]
-          debug('require("' + req + '")' + ' is a dependency')
-          deps[req] = true
-        } else {
-          if (isCore) {
-            debug('require("' + req + '")' + ' is core')
-          } else {
-            debug('require("' + req + '")' + ' is relative')
-            relatives.push(path.resolve(path.dirname(file), req))
-          }
+          var line = requires.nodes[i].loc.start.line;
+          debug('require("' + req + '") at line ' + line + ' of ' + file + ' is a dependency')
+          return { string: req, line: line, file: file }
         }
-      })
+
+        if (isCore) {
+          debug('require("' + req + '")' + ' is core')
+        } else {
+          debug('require("' + req + '")' + ' is relative')
+          relatives.push(path.resolve(path.dirname(file), req))
+        }
+      }).filter(Boolean)
       
       async.map(relatives, function(name, cb) {
         getDeps(name, basedir, cb)
-      }, done)
-    }
-    
-    function done(err) {
-      if (err) {
-        return callback(err)
-      }
-      callback(null, deps)
+      }, function (err, siblingDeps) {
+        if (err) return callback(err);
+        callback(null, localDeps.concat(siblingDeps))
+      })
     }
   }
 }
+
