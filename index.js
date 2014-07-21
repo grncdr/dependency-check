@@ -16,7 +16,10 @@ module.exports = function(opts, cb) {
     if (err && err.code === 'EISDIR') {
       pkgPath = path.join(pkgPath, 'package.json')
       return readPackage(pkgPath, function(err, pkg) {
-        if (err) return cb(err)
+        if (err && err.code === 'EISDIR') {
+          return cb(err)
+        }
+        pkg = pkg || {dependencies: {}}
         doParse(pkg, cb)
       })
       doParse(pkg, cb)
