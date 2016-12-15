@@ -6,7 +6,7 @@ var detective = require('detective')
 var async = require('async')
 var builtins = require('builtins')
 var resolve = require('resolve')
-var debug = require('debug')('dependency-check')
+var debug = require('debug')('non-local-requires')
 var lookup = require('lookup')
 var flatten = require('flatten')
 
@@ -34,6 +34,7 @@ module.exports = function(opts, cb) {
 
 function parse(opts, cb) {
   var IS_NOT_RELATIVE = /^[^\\\/\.]/
+  var IS_JSON = /\.json$/
   
   var pkgPath = opts.path
   var pkg = opts.package
@@ -66,7 +67,7 @@ function parse(opts, cb) {
   
   debug('entry paths', paths)
   
-  if (paths.length === 0) return cb(new Error('No entry paths found'))
+  if (paths.length === 0) return cb(new Error('No entry paths found ' + opts.path))
   
   var visited = {};
   async.map(paths, function(file, cb) {
@@ -85,8 +86,8 @@ function parse(opts, cb) {
   })
   
   function getDeps(file, basedir, callback) {
-    if (IS_NOT_RELATIVE.test(file)) {
-      return callback(null)
+    if (IS_NOT_RELATIVE.test(file) || IS_JSON.test(file)) {
+      return callback(null, [])
     }
     
     if (!fs.existsSync(file) || fs.statSync(file).isDirectory()) {
@@ -104,7 +105,13 @@ function parse(opts, cb) {
         return callback(err)
       }
       
-      var requires = detective.find(contents, {nodes: true, parse: {loc: true}})
+      debug('parsing %s', file);
+      var requires;
+      try {
+        requires = detective.find(contents, {nodes: true, parse: {loc: true}})
+      } catch (err) {
+        callback(err);
+      }
       var relatives = []
       var localDeps = requires.strings.map(function(req, i) {
         var isCore = builtins.indexOf(req) > -1
